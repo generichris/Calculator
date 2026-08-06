@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Calculator</title>
+<link rel="stylesheet" href="98.css">
+<style>
+  html, body {
+    margin: 0;
+    background: transparent;
+    font-family: "Pixelated MS Sans Serif", Arial;
+    overflow: hidden;
+  }
+
+  .calc-window {
+    width: 244px;
+  }
+
+  .calc-screen {
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 6px;
+    font-family: "Fixedsys", "Courier New", monospace;
+    font-size: 18px;
+    margin: 4px 0 8px 0;
+    overflow: hidden;
+    white-space: nowrap;
+    background: #fff;
+  }
+
+  .mem-flag {
+    height: 12px;
+    font-size: 11px;
+    margin: -6px 0 6px 2px;
+  }
+
+  .menu-row {
+    padding: 2px 0 6px 0;
+    display: flex;
+    gap: 14px;
+  }
+
+  .calc-body {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 4px;
+  }
+
+  .mem-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .mem-col button {
+    width: 100%;
+    min-width: 0;
+    color: #000080;
+    font-weight: bold;
+    font-size: 10px;
+    padding: 0 2px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .top-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .pad {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .pad button, .top-row button {
+    width: 100%;
+    min-width: 0;
+    padding: 0 2px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .eq-row button {
+    width: 100%;
+  }
+
+  .op-text {
+    color: #c00000;
+  }
+</style>
+</head>
+<body>
+
+<div class="window calc-window">
+  <div class="title-bar" data-tauri-drag-region>
+    <div class="title-bar-text">Calculator</div>
+    <div class="title-bar-controls">
+      <button aria-label="Minimize" id="btn-minimize"></button>
+      <button aria-label="Maximize" disabled></button>
+      <button aria-label="Close" id="btn-close"></button>
+    </div>
+  </div>
+
+  <div class="window-body">
+    <div class="menu-row">
+      <span><u>E</u>dit</span>
+      <span><u>V</u>iew</span>
+      <span><u>H</u>elp</span>
+    </div>
+
+    <div class="calc-screen field-row" style="border: 2px inset #dfdfdf;" id="screen">0.</div>
+    <div class="mem-flag" id="memIndicator">&nbsp;</div>
+
+    <div class="calc-body">
+      <div class="mem-col">
+        <button data-action="mc">MC</button>
+        <button data-action="mr">MR</button>
+        <button data-action="ms">MS</button>
+        <button data-action="mplus">M+</button>
+      </div>
+
+      <div class="right-col">
+        <div class="top-row">
+          <button data-action="backspace">Back</button>
+          <button data-action="ce">CE</button>
+          <button data-action="c">C</button>
+        </div>
+
+        <div class="pad">
+          <button class="num-btn" data-num="7">7</button>
+          <button class="num-btn" data-num="8">8</button>
+          <button class="num-btn" data-num="9">9</button>
+          <button class="op-text" data-op="/">/</button>
+
+          <button class="num-btn" data-num="4">4</button>
+          <button class="num-btn" data-num="5">5</button>
+          <button class="num-btn" data-num="6">6</button>
+          <button class="op-text" data-op="*">*</button>
+
+          <button class="num-btn" data-num="1">1</button>
+          <button class="num-btn" data-num="2">2</button>
+          <button class="num-btn" data-num="3">3</button>
+          <button class="op-text" data-op="-">-</button>
+
+          <button class="num-btn" data-num="0">0</button>
+          <button data-action="sign">+/-</button>
+          <button data-action="dot">.</button>
+          <button class="op-text" data-op="+">+</button>
+        </div>
+
+        <div class="eq-row">
+          <button class="op-text" data-action="equals">=</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const screen = document.getElementById('screen');
+  const memIndicator = document.getElementById('memIndicator');
+
+  let current = '0';
+  let previous = null;
+  let pendingOp = null;
+  let resetOnNextDigit = false;
+  let memory = 0;
+  let hasMemory = false;
+
+  function render() {
+    let display = current;
+    if (display.length > 16) display = display.slice(0, 16);
+    screen.textContent = display;
+    memIndicator.textContent = hasMemory ? 'M' : '\u00a0';
+  }
+
+  function inputDigit(d) {
+    if (resetOnNextDigit || current === '0') {
+      current = d;
+      resetOnNextDigit = false;
+    } else {
+      current += d;
+    }
+    render();
+  }
+
+  function inputDot() {
+    if (resetOnNextDigit) {
+      current = '0.';
+      resetOnNextDigit = false;
+    } else if (!current.includes('.')) {
+      current += '.';
+    }
+    render();
+  }
+
+  function clearAll() {
+    current = '0';
+    previous = null;
+    pendingOp = null;
+    resetOnNextDigit = false;
+    render();
+  }
+
+  function clearEntry() {
+    current = '0';
+    render();
+  }
+
+  function backspace() {
+    if (resetOnNextDigit) return;
+    current = current.length > 1 ? current.slice(0, -1) : '0';
+    render();
+  }
+
+  function toggleSign() {
+    if (current === '0') return;
+    current = current.startsWith('-') ? current.slice(1) : '-' + current;
+    render();
+  }
+
+  function compute(a, op, b) {
+    switch (op) {
+      case '+': return a + b;
+      case '-': return a - b;
+      case '*': return a * b;
+      case '/': return b === 0 ? NaN : a / b;
+      default: return b;
+    }
+  }
+
+  function formatResult(n) {
+    if (Number.isNaN(n)) return 'Cannot divide by zero';
+    let s = String(n);
+    if (s.length > 16) {
+      s = n.toPrecision(12).replace(/\.?0+$/, '').replace(/\.?0+e/, 'e');
+      if (s.length > 16) s = n.toExponential(6);
+    }
+    return s;
+  }
+
+  function setOp(op) {
+    if (pendingOp && !resetOnNextDigit) {
+      previous = compute(previous, pendingOp, parseFloat(current));
+      current = formatResult(previous);
+      render();
+    } else {
+      previous = parseFloat(current);
+    }
+    pendingOp = op;
+    resetOnNextDigit = true;
+  }
+
+  function equals() {
+    if (pendingOp === null || previous === null) return;
+    const result = compute(previous, pendingOp, parseFloat(current));
+    current = formatResult(result);
+    previous = null;
+    pendingOp = null;
+    resetOnNextDigit = true;
+    render();
+  }
+
+  function memClear() { memory = 0; hasMemory = false; render(); }
+  function memRecall() { if (hasMemory) { current = formatResult(memory); resetOnNextDigit = true; render(); } }
+  function memStore() { memory = parseFloat(current); hasMemory = true; render(); }
+  function memAdd() { memory += parseFloat(current); hasMemory = true; resetOnNextDigit = true; render(); }
+
+  document.querySelectorAll('[data-num]').forEach(btn => {
+    btn.addEventListener('click', () => inputDigit(btn.dataset.num));
+  });
+  document.querySelectorAll('[data-op]').forEach(btn => {
+    btn.addEventListener('click', () => setOp(btn.dataset.op));
+  });
+  document.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      switch (btn.dataset.action) {
+        case 'c': clearAll(); break;
+        case 'ce': clearEntry(); break;
+        case 'backspace': backspace(); break;
+        case 'sign': toggleSign(); break;
+        case 'dot': inputDot(); break;
+        case 'equals': equals(); break;
+        case 'mc': memClear(); break;
+        case 'mr': memRecall(); break;
+        case 'ms': memStore(); break;
+        case 'mplus': memAdd(); break;
+      }
+    });
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key >= '0' && e.key <= '9') inputDigit(e.key);
+    else if (e.key === '.') inputDot();
+    else if (['+', '-', '*', '/'].includes(e.key)) setOp(e.key);
+    else if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); equals(); }
+    else if (e.key === 'Backspace') backspace();
+    else if (e.key === 'Escape') clearAll();
+    else if (e.key === 'Delete') clearEntry();
+  });
+
+  const appWindow = window.__TAURI__.window.getCurrentWindow();
+  document.getElementById('btn-minimize').addEventListener('click', () => appWindow.minimize());
+  document.getElementById('btn-close').addEventListener('click', () => appWindow.close());
+
+  render();
+})();
+</script>
+
+</body>
+</html>
